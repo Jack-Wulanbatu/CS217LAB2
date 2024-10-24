@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     if(cuda_ret != cudaSuccess) FATAL("Unable to allocate device memory");
     cuda_ret = cudaMalloc((void**)&out_d, out_elements * sizeof(float));
     if(cuda_ret != cudaSuccess) FATAL("Unable to allocate device memory");
-    printf("Pointer %p, %p\n", (void*)in_d, (void*)out_d);
+    printf("Pointer %x, %x\n", in_d, out_d);
 
     cudaDeviceSynchronize();
     stopTime(&timer); printf("%f s\n", elapsedTime(timer));

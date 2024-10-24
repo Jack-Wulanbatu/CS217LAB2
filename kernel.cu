@@ -6,7 +6,7 @@
  *cr
  ******************************************************************************/
 
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 512
 
 
 __global__ void naiveReduction(float *out, float *in, unsigned size)
@@ -20,25 +20,36 @@ __global__ void naiveReduction(float *out, float *in, unsigned size)
     // INSERT KERNEL CODE HERE
     // NAIVE REDUCTION IMPLEMENTATION
 
-	__shared__ float sdata[BLOCK_SIZE * 2];
+	__shared__ float partialSum[2 * BLOCK_SIZE];
 
-	unsigned int tid = threadIdx.x;
-   	unsigned int i = blockIdx.x * blockDim.x * 2 + threadIdx.x;
+    unsigned int t = threadIdx.x;
+    unsigned int start = 2 * blockIdx.x * blockDim.x;
 
-	if (i < size) {
-        sdata[tid] = in[i] + in[i + blockDim.x];
-   	 } else {
-        sdata[tid] = 0;
-    	}
-   	__syncthreads();
-	for (unsigned int s = 1; s < blockDim.x; s *= 2) {
-        if (tid % (2 * s) == 0) {
-            sdata[tid] += sdata[tid + s];
-        }
-	__syncthreads();
+    if (start + t < size) {
+        partialSum[t] = in[start + t];
+    } else {
+        partialSum[t] = 0.0f;  
     }
-	if (tid == 0) {
-        out[blockIdx.x] = sdata[0];
+
+    if (start + blockDim.x + t < size) {
+        partialSum[blockDim.x + t] = in[start + blockDim.x + t];
+    } else {
+        partialSum[blockDim.x + t] = 0.0f;  
+    }
+
+    __syncthreads();  
+
+    for (unsigned int stride = 1; stride <= blockDim.x; stride *= 2) {
+        __syncthreads();
+        if (t % stride == 0) {
+            partialSum[2 * t] += partialSum[2 * t + stride];
+        }
+    }
+
+    __syncthreads();  
+
+    if (t == 0) {
+        out[blockIdx.x] = partialSum[0];  
     }
 }
 
@@ -52,38 +63,35 @@ __global__ void optimizedReduction(float *out, float *in, unsigned size)
 
     // INSERT KERNEL CODE HERE
     // OPTIMIZED REDUCTION IMPLEMENTATION
-     __shared__ float sdata[BLOCK_SIZE * 2]; 
+    __shared__ float partialSum[2 * BLOCK_SIZE];
 
-    unsigned int tid = threadIdx.x;
-    unsigned int i = blockIdx.x * blockDim.x * 2 + threadIdx.x;
+    unsigned int t = threadIdx.x; 
+    unsigned int start = 2 * blockIdx.x * blockDim.x;  
 
-    if (i < size) {
-        sdata[tid] = in[i] + in[i + blockDim.x];
+    if (start + t < size) {
+        partialSum[t] = in[start + t];
     } else {
-        sdata[tid] = 0;
+        partialSum[t] = 0.0f;  
     }
-    __syncthreads();  
 
-    for (unsigned int s = blockDim.x / 2; s > 32; s >>= 1){
-        if (tid < s) {
- 
-           sdata[tid] += sdata[tid + s];
+    if (start + blockDim.x + t < size) {
+        partialSum[blockDim.x + t] = in[start + blockDim.x + t];
+    } else {
+        partialSum[blockDim.x + t] = 0.0f;  
+    }
+
+    __syncthreads();
+
+    for (unsigned int stride = blockDim.x; stride > 0; stride >>= 1) {
+        if (t < stride) {
+            partialSum[t] += partialSum[t + stride];
         }
- 	__syncthreads();
-     }
- if (tid < 32) {
-    volatile float* vsmem = sdata;
-    vsmem[tid] += vsmem[tid + 32];
-    vsmem[tid] += vsmem[tid + 16];
-    vsmem[tid] += vsmem[tid + 8];
-    vsmem[tid] += vsmem[tid + 4];
-    vsmem[tid] += vsmem[tid + 2];
-    vsmem[tid] += vsmem[tid + 1];
-}   
+        __syncthreads();
+    }
 
-     if (tid == 0) {
-        out[blockIdx.x] = sdata[0];
-     }
+    if (t == 0) {
+        out[blockIdx.x] = partialSum[0];
+    }
 }
 
 
