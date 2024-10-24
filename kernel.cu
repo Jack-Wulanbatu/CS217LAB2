@@ -20,7 +20,7 @@ __global__ void naiveReduction(float *out, float *in, unsigned size)
     // INSERT KERNEL CODE HERE
     // NAIVE REDUCTION IMPLEMENTATION
 
-	__shared__ float sdata[BLOCK_SIZE];
+	__shared__ float sdata[BLOCK_SIZE * 2];
 
 	unsigned int tid = threadIdx.x;
    	unsigned int i = blockIdx.x * blockDim.x * 2 + threadIdx.x;
@@ -52,7 +52,7 @@ __global__ void optimizedReduction(float *out, float *in, unsigned size)
 
     // INSERT KERNEL CODE HERE
     // OPTIMIZED REDUCTION IMPLEMENTATION
-     __shared__ float sdata[BLOCK_SIZE]; 
+     __shared__ float sdata[BLOCK_SIZE * 2]; 
 
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * blockDim.x * 2 + threadIdx.x;
